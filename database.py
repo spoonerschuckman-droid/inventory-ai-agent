@@ -1,8 +1,10 @@
+import os
 import sqlite3
 
+DB_PATH = os.getenv("DB_PATH", "inventory.db")
 
 def init_db():
-    conn = sqlite3.connect("inventory.db")
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
     cursor.execute("""
@@ -20,7 +22,7 @@ def init_db():
 
 
 def insert_record(material, type, quantity, unit):
-    conn = sqlite3.connect("inventory.db")
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
     cursor.execute("""
@@ -34,7 +36,7 @@ def insert_record(material, type, quantity, unit):
 
 
 def fetch_records():
-    conn = sqlite3.connect("inventory.db")
+    conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
@@ -50,7 +52,7 @@ def fetch_records():
 
 
 def fetch_records_by_material(material, unit):
-    conn = sqlite3.connect("inventory.db")
+    conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
@@ -67,7 +69,7 @@ def fetch_records_by_material(material, unit):
 
 
 def delete_record(record_id):
-    conn = sqlite3.connect("inventory.db")
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
     cursor.execute(
@@ -80,7 +82,7 @@ def delete_record(record_id):
 
 
 def clear_records():
-    conn = sqlite3.connect("inventory.db")
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
     cursor.execute("DELETE FROM inventory_records")
