@@ -113,7 +113,7 @@ inventory-ai-agent/
 ### 1. 安装依赖
 
 ```bash
-pip install fastapi uvicorn pydantic openai
+python -m pip install -r requirements.txt
 ```
 
 ### 2. 配置 DeepSeek API Key
@@ -126,19 +126,61 @@ DEEPSEEK_API_KEY=你的_API_KEY
 
 请勿将真实 API Key 提交到 GitHub。
 
+还需要设置 `API_ACCESS_KEY`，这是调用本项目接口的访问密钥，与用于调用
+DeepSeek 的 `DEEPSEEK_API_KEY` 是两把不同的密钥。建议使用密码管理器生成
+足够长的随机值。不要把真实密钥写进代码或提交到 Git。
+
+PowerShell 本地开发示例（请替换占位符）：
+
+```powershell
+$env:API_ACCESS_KEY = "替换为你生成的随机访问密钥"
+$env:APP_ENV = "development"
+```
+
+`.env.example` 仅为配置说明，程序不会自动读取 `.env` 文件；请在启动服务的
+终端或部署平台中设置环境变量。
+
 ### 3. 启动服务
 
 ```bash
 python -m uvicorn main:app --reload
 ```
 
-启动成功后访问：
+设置 `APP_ENV=development` 后，启动成功即可访问：
 
 ```text
 http://127.0.0.1:8000/docs
 ```
 
-可以通过 Swagger 页面测试库存接口和 Agent 接口。
+可以通过 Swagger 页面的 **Authorize** 输入 `API_ACCESS_KEY`，再测试业务接口。
+默认（未设置 `APP_ENV`）、`APP_ENV=production` 或其他取值时，
+`/docs`、`/redoc` 和 `/openapi.json` 都返回 404。修改环境后需重启服务。
+生产环境不要设置为 `development`。
+
+所有库存及 Agent 业务请求必须携带 `X-API-Key` 请求头。例如在同一个
+PowerShell 终端中查询库存：
+
+```powershell
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/inventory" -Headers @{ "X-API-Key" = $env:API_ACCESS_KEY }
+```
+
+客户端缺失或使用错误密钥时返回 401；服务端 `API_ACCESS_KEY` 未设置、为空或
+只有空白字符时返回 503，并拒绝业务访问。根路径 `/` 仅用于健康检查，仍然公开。
+公网传输必须使用 HTTPS，并避免在 URL、日志或公开前端代码中泄露密钥。
+
+## 自动化测试（无需真实密钥）
+
+```powershell
+python -m venv .venv-auth
+.\.venv-auth\Scripts\python -m pip install -r requirements-dev.txt
+.\.venv-auth\Scripts\python -m pytest -q
+```
+
+pytest 仅收集 `tests/` 下的自动化测试；原有 `llm_test.py` 和 `tool_test.py`
+是会调用真实外部 API 的手工演示脚本，不包含在默认测试中，请勿作为离线测试运行。
+每个测试在导入项目模块前将 `DB_PATH` 指向 pytest 临时目录中的独立 SQLite 文件，
+移除进程内真实 API Key，并替换 DeepSeek 客户端、阻止网络连接。测试不使用真实
+`inventory.db`，也不需要任何真实 API Key。
 
 ## 演示示例
 

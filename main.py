@@ -1,11 +1,36 @@
-from fastapi import FastAPI, HTTPException
+import os
+import secrets
+
+from fastapi import APIRouter, Depends, FastAPI, HTTPException
+from fastapi.security import APIKeyHeader
 from pydantic import BaseModel, Field
 from typing import Literal
 from database import insert_record, fetch_records, fetch_records_by_material
 from agent import ask_agent
 from inventory_service import get_stock as get_stock_service
 
-app = FastAPI()
+docs_enabled = os.getenv("APP_ENV", "production") == "development"
+app = FastAPI(
+    docs_url="/docs" if docs_enabled else None,
+    redoc_url="/redoc" if docs_enabled else None,
+    openapi_url="/openapi.json" if docs_enabled else None,
+)
+
+api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+
+
+def require_api_key(api_key: str | None = Depends(api_key_header)):
+    expected_key = os.getenv("API_ACCESS_KEY")
+    # Fail closed even if the server has not been configured yet.
+    if not expected_key or not expected_key.strip():
+        raise HTTPException(status_code=503, detail="API access is not configured")
+    if not api_key or not secrets.compare_digest(
+        api_key.encode("utf-8"), expected_key.encode("utf-8")
+    ):
+        raise HTTPException(status_code=401, detail="Invalid or missing API key")
+
+
+business_router = APIRouter(dependencies=[Depends(require_api_key)])
 
 
 class InventoryRecord(BaseModel):
@@ -38,7 +63,7 @@ def calculate_stock(records):
 
     return stock
 
-@app.post("/inventory")
+@business_router.post("/inventory")
 def create_inventory(record: InventoryRecord):
 
     records = fetch_records()
@@ -65,7 +90,7 @@ def create_inventory(record: InventoryRecord):
         "data": record
     }
 
-@app.get("/inventory")
+@business_router.get("/inventory")
 def get_inventory():
 
     records = fetch_records()
@@ -76,11 +101,11 @@ def get_inventory():
         "current_stock": stock
     }
 
-@app.get("/stock")
+@business_router.get("/stock")
 def get_stock_api(material: str, unit: str):
     return get_stock_service(material, unit)
 
-@app.post("/agent/query")
+@business_router.post("/agent/query")
 def agent_query(query: AgentQuery):
 
     answer = ask_agent(query.message)
@@ -89,3 +114,6 @@ def agent_query(query: AgentQuery):
         "message": query.message,
         "answer": answer
     }
+
+
+app.include_router(business_router)

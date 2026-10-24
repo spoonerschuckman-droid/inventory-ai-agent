@@ -2,3 +2,5 @@ __pycache__/
 *.pyc
 inventory.db
 .env
+.venv-auth/
+.pytest_cache/
